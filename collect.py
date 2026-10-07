@@ -41,41 +41,52 @@ def when(text, now):
         return dt.datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), 12, tzinfo=KST)
     return None
 
+BLIND = '새 창 열림'
+
+def clean(t):
+    return re.sub(r'\s+', ' ', t or '').strip()
+
+def txt(el, sep=' '):
+    return clean((el.get_text(sep) if el is not None else '').replace(BLIND, ''))
+
 def parse(page_html, now):
+    """네이버 뉴스 검색 결과(2026-10 화면 구조) 읽기.
+    제목 링크(data-heatmap-target=".tit")마다, 그 기사 하나만 담긴 가장 큰 덩어리에서
+    매체(profile-info-title-text), 시간·면수(profile-info-subtext), 네이버뉴스 링크(.nav)를 읽는다."""
     soup, res = BeautifulSoup(page_html, 'html.parser'), {}
-    for a in soup.select('a[href*="news.naver.com"]'):
-        link = a.get('href', '')
-        i = art_id(link)
-        if not i or i in res:
-            continue
-        node, blk = a, None
-        for _ in range(12):
+    ts = soup.select('a[data-heatmap-target=".tit"], a.news_tit')
+    tset = {id(x) for x in ts}
+    for t in ts:
+        node, blk = t, None
+        while node.parent is not None:
             node = node.parent
-            if node is None:
+            if sum(1 for x in node.find_all('a') if id(x) in tset) > 1 or len(node.get_text(' ', strip=True)) > 3000:
                 break
-            t = node.get_text(' ', strip=True)
-            if len(t) > 1000:
-                break
-            anchors = [x for x in node.find_all('a') if len(x.get_text(strip=True)) >= 6]
-            if (REL.search(t) or ABS.search(t)) and anchors:
-                blk = node
-                break
+            blk = node
         if blk is None:
             continue
-        strings = list(blk.stripped_strings)
-        media = next((m for s in strings for m in MEDIA if s == m or s.startswith(m + ' ')), '')
-        if not media:
+        title = txt(t.select_one('[class*="headline"]'), '') or txt(t, '')
+        if len(title) < 3:
             continue
-        t_a = next(x for x in blk.find_all('a') if len(x.get_text(strip=True)) >= 6)
-        text = blk.get_text(' ', strip=True)
-        pg = PAGE.search(text)
-        href = t_a.get('href', '')
-        res[i] = {'id': i, 'title': html.unescape(t_a.get_text(' ', strip=True)), 'media': media,
-                  'url': href if href and 'naver.com' not in href else link, 'link': link,
-                  'pub_dt': when(text, now), 'section': '지면' if pg else '온라인', 'page': pg.group(1) if pg else ''}
+        mname = txt(blk.select_one('[class*="profile-info-title-text"]'))
+        metas = [txt(x) for x in blk.select('[class*="profile-info-subtext"]')]
+        meta = ' '.join(metas)
+        media = mname if mname in MEDIA else ''
+        nav = blk.select_one('a[data-heatmap-target=".nav"]')
+        link = nav.get('href', '') if nav else ''
+        href = t.get('href', '')
+        i = art_id(link) or art_id(href) or href
+        if not i or i in res:
+            continue
+        pg = PAGE.search(meta) if media else None
+        res[i] = {'head': [mname] + metas, 'id': i, 'title': html.unescape(title), 'media': media,
+                  'url': href or link, 'link': link, 'pub_dt': when(meta, now),
+                  'section': '지면' if pg else '온라인', 'page': pg.group(1) if pg else ''}
     return res
 
-def scrape(url, start, now, pages=10, label=''):
+def scrape(url, start, now, pages=15, label=''):
+    """검색 결과를 쪽별로 읽는다. 지정 16개 매체가 한 건도 없는 쪽이 있어도 계속 넘어가고,
+    결과가 끝났거나 시간이 보고서 범위보다 오래되면 멈춘다."""
     out = {}
     for k in range(pages):
         u = url + ('&' if '?' in url else '?') + f'start={k * 10 + 1}'
@@ -85,12 +96,25 @@ def scrape(url, start, now, pages=10, label=''):
             print(label, '요청 실패', e); break
         if r.status_code != 200:
             print(label, '응답 코드', r.status_code); break
-        items = parse(r.text, now)
-        print(f'{label} {k + 1}쪽: 기사 {len(items)}건 (HTML {len(r.text)}자)')
-        if not items:
+        raw = parse(r.text, now)
+        items = {i: x for i, x in raw.items() if x['media']}
+        if k == 0 and (os.environ.get('FORCE_PRINT') or not raw):
+            os.makedirs('data', exist_ok=True)
+            open('data/debug_naver.html', 'w', encoding='utf-8').write(re.sub(r'<(script|style)[\s\S]*?</\1>', '', r.text)[:200000])
+        if not raw:
+            sp = BeautifulSoup(r.text, 'html.parser')
+            print(f'  [진단] 페이지 제목: {sp.title.get_text(strip=True) if sp.title else "(없음)"}')
+            print(f'  [진단] 링크 {len(sp.find_all("a"))}개 · 제목링크 {len(sp.select("a.news_tit, a[data-heatmap-target=\".tit\"]"))}개')
+        print(f'{label} {k + 1}쪽: 읽은 기사 {len(raw)}건 중 지정 매체 {len(items)}건')
+        if k == 0:
+            for x in list(raw.values())[:3]:
+                print('  [샘플]', x['title'][:20], '| 매체:', x['media'] or '(지정 외)', '| 시간:', x['pub_dt'].strftime('%m-%d %H:%M') if x['pub_dt'] else '(못 읽음)', '| 앞글자:', x['head'][:5])
+        if not raw:
             break
+        for x in items.values():
+            x.pop('head', None)
         out.update(items)
-        known = [x['pub_dt'] for x in items.values() if x['pub_dt']]
+        known = [x['pub_dt'] for x in raw.values() if x['pub_dt']]
         if known and max(known) < start - dt.timedelta(hours=1):
             break
         time.sleep(2)
@@ -100,7 +124,7 @@ def main():
     d, start, end, now = report_window()
     path = f'data/{d}.json'
     data = json.load(open(path, encoding='utf-8')) if os.path.exists(path) else {'date': str(d), 'items': []}
-    by = {x['id']: x for x in data['items']}
+    by = {x['id']: x for x in data['items'] if len(x['title']) >= 3 and BLIND not in x['title'] and '언론사 선정' not in x['title']}  # 잘못 읽힌 옛 항목 정리
     found = scrape(BASE, start, now, label='전체')
     last = data.get('printed_at')
     pu = os.environ.get('PRINT_SEARCH_URL', '').strip()
@@ -112,9 +136,11 @@ def main():
             found[i] = x
         data['printed_at'] = now.isoformat(timespec='seconds')
     tol = dt.timedelta(hours=1)
+    drop = {'시간 범위 밖': 0}
     for i, x in found.items():
         pub = x.pop('pub_dt') or now
         if not (start - tol <= pub < end + tol):
+            drop['시간 범위 밖'] += 1
             continue
         x['pub'] = pub.isoformat(timespec='minutes')
         old = by.get(i)
@@ -122,6 +148,7 @@ def main():
             by[i] = x
         elif x['section'] == '지면':
             old['section'], old['page'] = '지면', x['page'] or old.get('page', '')
+    print(f'범위 {start:%m-%d %H:%M} ~ {end:%m-%d %H:%M} / 읽은 지정 매체 기사 {len(found)}건, {drop}')
     data.update({'from': start.isoformat(), 'to': end.isoformat(), 'updated': now.strftime('%m-%d %H:%M'),
                  'items': sorted(by.values(), key=lambda x: x['pub'])})
     os.makedirs('data', exist_ok=True)
