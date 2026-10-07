@@ -60,9 +60,9 @@ const nk=s=>String(s==null?'':s).normalize('NFC').replace(/[^0-9A-Za-z가-힣]/g
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),GB='https://generativelanguage.googleapis.com/v1beta/';
 const MEDIA=['조선일보','중앙일보','동아일보','한국일보','경향신문','한겨레','매일경제','한국경제','서울경제','파이낸셜뉴스','이데일리','세계일보','국민일보','서울신문','전자신문','머니투데이'];
 const DEF_SECS='문화예술 : 공연·전시·영화·음악·문학·출판·미술 등\n전통유산 : 문화유산·국가유산·전통문화·박물관 등\n체육 : 스포츠·체육 정책, 대회, 선수\n관광 : 관광·여행·지역관광 정책과 산업\n기타 보도 : 위에 해당하지 않는 문화·체육·관광 관련 소식\n오피니언 : 사설·칼럼·기고';
-let CATS=null,COLL=[],COLLOK=false,OVR={},DATE='',ROWS=[],FILES=[],RUN=false,ctl=null,CUR='',BAD=new Set();
+let CATS=null,COLL=[],COLLOK=false,OVR={},DATE='',ROWS=[],FILES=[],RUN=false,ctl=null,CUR='',BAD=new Set(),BUSY={};
 const todayStr=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())};
-const LSg=k=>{try{return localStorage.getItem(k)}catch(e){return null}},LSs=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const LSg=k=>{try{return localStorage.getItem(k)}catch(e){return null}},LSs=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};CUR=LSg('gcur')||'';
 function msg(t,c){const m=$('msg');m.textContent=t;m.className='msg '+c;m.style.display='block'}
 /* 설정 */
 function cfg(){const secs=[],desc={};($('secs').value||'').split('\n').forEach(l=>{const i=l.indexOf(':'),n=(i<0?l:l.slice(0,i)).trim();if(n){secs.push(n);desc[n]=i<0?'':l.slice(i+1).trim()}});return{org:$('org').value.trim(),secs,desc}}
@@ -94,19 +94,32 @@ async function setKey(){const v=$('ak').value.trim();
     else{const L=flashList((await r.json()).models);if(!L.length)msg('키는 맞지만 사용할 수 있는 모델을 찾지 못했습니다.','err');else{LSs('gkey',v);LSs('gmodels',JSON.stringify(L));$('ak').value='';$('kd').open=false;BAD.clear();CUR='';keyNote();msg('연결되었습니다. 엑셀을 올려 분류를 시작하세요.','ok')}}}
   catch(e){msg('Google에 연결하지 못했습니다 ['+(e&&e.message||e)+']. 이 파일을 Claude 화면 안이 아닌 일반 브라우저에서 여는지 확인하세요.','err')}
   $('kb').disabled=false}
-async function ask(parts,sig){
-  const L=models();if(!key()||!L.length)throw{fatal:'Gemini 키를 먼저 저장해주세요.'};
-  for(const m of (CUR&&!BAD.has(CUR)?[CUR]:[]).concat(L.filter(x=>x!==CUR&&!BAD.has(x)))){
-    for(let t=0;t<4;t++){let r;
-      try{r=await fetch(GB+'models/'+m+':generateContent',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-goog-api-key':key()},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{temperature:0,responseMimeType:'application/json',maxOutputTokens:8000}})})}
-      catch(e){if(sig&&sig.aborted)throw{cancel:1};await sleep(1500);continue}
-      if(r.ok){const j=await r.json(),txt=(((j.candidates||[])[0]||{}).content&&(j.candidates[0].content.parts||[]).map(x=>x.text||'').join(''))||'',mm=txt.replace(/```json|```/g,'').match(/[\{\[][\s\S]*[\}\]]/);
-        try{if(mm){const o=JSON.parse(mm[0]);CUR=m;return o}}catch(e){}await sleep(1000);continue}
-      let b='';try{b=await r.text()}catch(e){}
+let NOTHINK=false,FCUR='';
+async function post(m,parts,sig){
+  const c=new AbortController(),tm=setTimeout(()=>c.abort(),90000),onAb=()=>c.abort();if(sig)sig.addEventListener('abort',onAb);
+  try{return await fetch(GB+'models/'+m+':generateContent',{method:'POST',signal:c.signal,headers:{'content-type':'application/json','x-goog-api-key':key()},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:Object.assign({temperature:0,responseMimeType:'application/json',maxOutputTokens:8000},NOTHINK?{}:{thinkingConfig:{thinkingLevel:'minimal'}})})})}
+  catch(e){if(sig&&sig.aborted)throw{cancel:1};return null}
+  finally{clearTimeout(tm);if(sig)sig.removeEventListener('abort',onAb)}}
+async function ask(parts,sig,fast){
+  let L=models();if(!key()||!L.length)throw{fatal:'Gemini 키를 먼저 저장해주세요.'};
+  if(fast){const sc=n=>(/lite/.test(n)?0:2)+(/preview/.test(n)?1:0);L=L.slice().sort((a,b)=>sc(a)-sc(b))}
+  for(let round=0;round<8;round++){
+    const cur=fast?FCUR:CUR,order=(cur&&L.includes(cur)?[cur]:[]).concat(L.filter(x=>x!==cur)).filter(m=>!BAD.has(m));
+    if(!order.length)break;
+    for(const m of order){
+      if((BUSY[m]||0)>Date.now())continue;
+      if(sig&&sig.aborted)throw{cancel:1};
+      const th=!NOTHINK;let r=await post(m,parts,sig),b='';
+      if(r&&!r.ok){try{b=await r.text()}catch(e){}
+        if(th&&r.status===400&&/thinking|minimal/i.test(b)){NOTHINK=true;r=await post(m,parts,sig);b='';if(r&&!r.ok){try{b=await r.text()}catch(e){}}}}
+      if(!r){BUSY[m]=Date.now()+45000;continue}
+      if(r.ok){let o=null;try{const j=await r.json(),txt=(((j.candidates||[])[0]||{}).content&&(j.candidates[0].content.parts||[]).map(x=>x.text||'').join(''))||'',mm=txt.replace(/```json|```/g,'').match(/[\{\[][\s\S]*[\}\]]/);if(mm)o=JSON.parse(mm[0])}catch(e){}
+        if(o){if(fast)FCUR=m;else CUR=m;LSs(fast?'gfcur':'gcur',m);return o}BUSY[m]=Date.now()+20000;continue}
       if(r.status===401||r.status===403||(r.status===400&&/API key/i.test(b)))throw{fatal:'API 키가 올바르지 않습니다. 키를 다시 저장해주세요.'};
-      if(r.status===404||(r.status===429&&/limit: ?0|per ?day/i.test(b))){BAD.add(m);break}
-      if(r.status===429||r.status>=500){const w=Math.min(15*(t+1),60);for(let s=w;s>0;s--){if(sig&&sig.aborted)throw{cancel:1};msg('Google가 바빠 잠시 기다립니다… '+s+'초','ok');await sleep(1000)}continue}
-      break}}
+      if(r.status===404||(r.status===429&&/limit: ?0|per ?day/i.test(b))){BAD.add(m);continue}
+      BUSY[m]=Date.now()+45000}
+    const nxt=Math.min(...order.map(m=>BUSY[m]||0)),w=Math.min(30,Math.max(3,Math.ceil((nxt-Date.now())/1000)));
+    for(let k=w;k>0;k--){if(sig&&sig.aborted)throw{cancel:1};msg('모든 모델이 바빠 잠시 기다립니다… '+k+'초','ok');await sleep(1000)}}
   throw{fatal:'사용할 수 있는 모델이 없거나 모두 막혀 있습니다. 잠시 뒤 다시 시도해주세요.'}}
 /* 파일 */
 function fileKey(n){return nk(String(n).replace(/\.[^.]+$/,'').replace(/^\d+_/,'').replace(/_\d{4}-\d{2}-\d{2}$/,''))}
@@ -139,14 +152,19 @@ async function runCls(withImg){
   $('b1').style.display=$('b2').style.display='none';$('bs').style.display='';$('bar').style.display='block';setProg(0,1);
   const items=ROWS.map((r,i)=>({i,title:r.title,media:r.media,page:r.page,url:r.url,section:'',imp:3,g:0,n:1})),N=items.length;let done=0,err='',note='';
   try{
-    for(let pass=0;pass<2;pass++){const todo=items.filter(x=>!x.ok);
-      for(let s=0;s<todo.length;s+=30){const part=todo.slice(s,s+30);msg('제목 분석 중… '+done+' / '+N,'ok');
-        const got={};arrOf(await ask([{text:titlePrompt(c,part)}],sig)).forEach((x,p)=>{let k=parseInt(x.k,10);if(!(k>=1&&k<=N))k=part[p]?part[p].i+1:0;if(k&&!got[k])got[k]=x});
-        part.forEach(x=>{const g=got[x.i+1];if(g){x.ok=1;x.section=c.secs.includes(g.section)?g.section:'';x.imp=Math.min(5,Math.max(1,parseInt(g.imp,10)||3));done++}});setProg(done,N)}
+    const cache=(()=>{try{return JSON.parse(LSg('tcache')||'{}')}catch(e){return{}}})(),ck=x=>nk(x.media+x.title)+'|'+c.secs.join(',');
+    items.forEach(x=>{const g=cache[ck(x)];if(g){x.ok=1;x.section=g.s;x.imp=g.m;done++}});setProg(done,N);
+    const clusterP=(async()=>{try{const r=await ask([{text:'다음은 오늘 신문 기사 목록입니다(번호|매체|제목). 같은 사건·정책·이슈를 다룬 기사끼리 묶어 JSON {"groups":[[번호,번호],...]} 한 개만 출력하세요. 2건 이상인 묶음만 쓰고 서로 다른 사안은 묶지 마세요.\n'+items.map(x=>(x.i+1)+'|'+x.media+'|'+x.title).join('\n')}],sig,true);
+      (r.groups||[]).forEach((g,gi)=>{if(!Array.isArray(g))return;const m=g.map(k=>items[k-1]).filter(Boolean),n=new Set(m.map(a=>a.media)).size;m.forEach(a=>{a.g=gi+1;a.n=Math.max(a.n,n)})})}catch(e){if(e&&e.cancel)throw e}})();
+    clusterP.catch(()=>{});
+    for(let pass=0;pass<2;pass++){const todo=items.filter(x=>!x.ok),parts=[];for(let s=0;s<todo.length;s+=50)parts.push(todo.slice(s,s+50));let q=0;
+      const worker=async()=>{while(q<parts.length){const part=parts[q++];msg('제목 분석 중… '+done+' / '+N,'ok');
+        const got={};arrOf(await ask([{text:titlePrompt(c,part)}],sig,true)).forEach((x,p)=>{let k=parseInt(x.k,10);if(!(k>=1&&k<=N))k=part[p]?part[p].i+1:0;if(k&&!got[k])got[k]=x});
+        part.forEach(x=>{const g=got[x.i+1];if(g){x.ok=1;x.section=c.secs.includes(g.section)?g.section:'';x.imp=Math.min(5,Math.max(1,parseInt(g.imp,10)||3));done++;cache[ck(x)]={s:x.section,m:x.imp}}});setProg(done,N)}};
+      try{await Promise.all([worker(),worker(),worker()])}catch(e){if(e&&(e.cancel||e.fatal))throw e}
       if(items.every(x=>x.ok))break}
-    msg('같은 이슈를 다룬 기사 확인 중…','ok');
-    try{const r=await ask([{text:'다음은 오늘 신문 기사 목록입니다(번호|매체|제목). 같은 사건·정책·이슈를 다룬 기사끼리 묶어 JSON {"groups":[[번호,번호],...]} 한 개만 출력하세요. 2건 이상인 묶음만 쓰고 서로 다른 사안은 묶지 마세요.\n'+items.map(x=>(x.i+1)+'|'+x.media+'|'+x.title).join('\n')}],sig);
-      (r.groups||[]).forEach((g,gi)=>{if(!Array.isArray(g))return;const m=g.map(k=>items[k-1]).filter(Boolean),n=new Set(m.map(a=>a.media)).size;m.forEach(a=>{a.g=gi+1;a.n=Math.max(a.n,n)})})}catch(e){if(e&&(e.cancel||e.fatal))throw e}
+    {const ks=Object.keys(cache);if(ks.length>3000)ks.slice(0,ks.length-3000).forEach(k=>delete cache[k]);LSs('tcache',JSON.stringify(cache))}
+    msg('같은 이슈를 다룬 기사 확인 중…','ok');await clusterP;
     if(withImg){const ks=ROWS.map((r,i)=>nk(r.media+r.title)),used=new Set(),map={};
       FILES.forEach((f,fi)=>{const k=fileKey(f.name);let j=ks.findIndex((x,j)=>!used.has(j)&&x===k);if(j<0&&k.length>=10)j=ks.findIndex((x,j)=>!used.has(j)&&x.length>=10&&(x.startsWith(k)||k.startsWith(x)));if(j>=0){used.add(j);map[j]=fi}});
       const un=items.filter(x=>!x.section&&map[x.i]!==undefined);let d2=0;
