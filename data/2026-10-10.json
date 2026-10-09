@@ -1,7 +1,18 @@
 {
  "date": "2026-10-10",
- "items": [],
+ "items": [
+  {
+   "id": "081-0003687429",
+   "title": "전주·서울, 2036 올림픽 공동 유치 ‘시간과의 싸움’",
+   "media": "서울신문",
+   "url": "https://www.seoul.co.kr/news/publicnews/local_govern/news_local/2026/10/09/20261009019002?wlog_tag3=naver",
+   "link": "https://n.news.naver.com/mnews/article/081/0003687429?sid=102",
+   "section": "지면",
+   "page": "19면",
+   "pub": "2026-10-09T06:01+09:00"
+  }
+ ],
  "from": "2026-10-09T07:00:00+09:00",
  "to": "2026-10-10T07:00:00+09:00",
- "updated": "10-09 08:47"
+ "updated": "10-09 09:01"
 }
