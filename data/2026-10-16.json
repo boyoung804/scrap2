@@ -187,8 +187,8 @@
    "media": "서울경제",
    "url": "https://www.sedaily.com/article/20102152?ref=naver",
    "link": "https://n.news.naver.com/mnews/article/011/0004671713?sid=104",
-   "section": "온라인",
-   "page": "",
+   "section": "지면",
+   "page": "1면",
    "pub": "2026-10-15T17:57+09:00"
   },
   {
@@ -207,8 +207,8 @@
    "media": "서울경제",
    "url": "https://www.sedaily.com/article/20102227?ref=naver",
    "link": "https://n.news.naver.com/mnews/article/011/0004671764?sid=103",
-   "section": "온라인",
-   "page": "",
+   "section": "지면",
+   "page": "4면",
    "pub": "2026-10-15T19:11+09:00"
   },
   {
@@ -224,5 +224,5 @@
  ],
  "from": "2026-10-15T07:00:00+09:00",
  "to": "2026-10-16T07:00:00+09:00",
- "updated": "10-15 23:16"
+ "updated": "10-15 23:55"
 }
