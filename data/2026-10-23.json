@@ -1,7 +1,18 @@
 {
  "date": "2026-10-23",
- "items": [],
+ "items": [
+  {
+   "id": "018-0006393446",
+   "title": "올해 방한 외국인 1711만명…지방 공항 입국 확대",
+   "media": "이데일리",
+   "url": "https://www.edaily.co.kr/News/Read?newsId=03132406645615544&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+   "link": "https://n.news.naver.com/mnews/article/018/0006393446?sid=103",
+   "section": "온라인",
+   "page": "",
+   "pub": "2026-10-22T09:47+09:00"
+  }
+ ],
  "from": "2026-10-22T07:00:00+09:00",
  "to": "2026-10-23T07:00:00+09:00",
- "updated": "10-22 07:46"
+ "updated": "10-22 09:59"
 }
