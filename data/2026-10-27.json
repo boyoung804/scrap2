@@ -87,12 +87,32 @@
    "media": "국민일보",
    "url": "https://www.kmib.co.kr/article/20261026502060",
    "link": "https://n.news.naver.com/mnews/article/005/0001881046?sid=103",
+   "section": "지면",
+   "page": "27면",
+   "pub": "2026-10-27T01:36+09:00"
+  },
+  {
+   "id": "020-0003757845",
+   "title": "윤동주-김남조 시인 금관문화훈장",
+   "media": "동아일보",
+   "url": "https://www.donga.com/news/People/article/all/20261027/134913534/2",
+   "link": "https://n.news.naver.com/mnews/article/020/0003757845?sid=102",
+   "section": "지면",
+   "page": "A25면",
+   "pub": "2026-10-27T04:52+09:00"
+  },
+  {
+   "id": "022-0004169976",
+   "title": "“광명에 5만석 돔구장을”… 광명시민 ‘K-컬처 거점’ 총력전",
+   "media": "세계일보",
+   "url": "https://www.segye.com/newsView/20261026519964?OutUrl=naver",
+   "link": "https://n.news.naver.com/mnews/article/022/0004169976?sid=102",
    "section": "온라인",
    "page": "",
-   "pub": "2026-10-27T01:36+09:00"
+   "pub": "2026-10-27T05:52+09:00"
   }
  ],
  "from": "2026-10-26T07:00:00+09:00",
  "to": "2026-10-27T07:00:00+09:00",
- "updated": "10-27 02:36"
+ "updated": "10-27 06:52"
 }
