@@ -1,7 +1,28 @@
 {
  "date": "2026-10-28",
- "items": [],
+ "items": [
+  {
+   "id": "018-0006397083",
+   "title": "문체부·예술경영지원센터, 대형 창작 뮤지컬 52편 낭독·시범공연 지원",
+   "media": "이데일리",
+   "url": "https://www.edaily.co.kr/News/Read?newsId=04057366645617184&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+   "link": "https://n.news.naver.com/mnews/article/018/0006397083?sid=103",
+   "section": "온라인",
+   "page": "",
+   "pub": "2026-10-27T14:16+09:00"
+  },
+  {
+   "id": "030-0003479160",
+   "title": "테크빌교육, '독서경영 우수 직장 인증' 문체부 장관상 수상",
+   "media": "전자신문",
+   "url": "https://www.etnews.com/20261027000318",
+   "link": "https://n.news.naver.com/mnews/article/030/0003479160?sid=105",
+   "section": "온라인",
+   "page": "",
+   "pub": "2026-10-27T14:32+09:00"
+  }
+ ],
  "from": "2026-10-27T07:00:00+09:00",
  "to": "2026-10-28T07:00:00+09:00",
- "updated": "10-27 10:07"
+ "updated": "10-27 15:16"
 }
