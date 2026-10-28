@@ -1,7 +1,28 @@
 {
  "date": "2026-10-29",
- "items": [],
+ "items": [
+  {
+   "id": "018-0006397649",
+   "title": "어린이·노인 함께 독서…파주 탄현작은도서관 문체부 장관상",
+   "media": "이데일리",
+   "url": "https://www.edaily.co.kr/News/Read?newsId=03073366645617512&mediaCodeNo=257&utm_source=naver&utm_medium=referral&utm_campaign=news_syndication&utm_content=original_article",
+   "link": "https://n.news.naver.com/mnews/article/018/0006397649?sid=100",
+   "section": "온라인",
+   "page": "",
+   "pub": "2026-10-28T09:32+09:00"
+  },
+  {
+   "id": "022-0004170405",
+   "title": "스포츠윤리센터, 화재 대비 민방위 훈련…임직원 대피 역량 점검",
+   "media": "세계일보",
+   "url": "https://www.segye.com/newsView/20261028506235?OutUrl=naver",
+   "link": "https://m.sports.naver.com/general/article/022/0004170405",
+   "section": "온라인",
+   "page": "",
+   "pub": "2026-10-28T10:17+09:00"
+  }
+ ],
  "from": "2026-10-28T07:00:00+09:00",
  "to": "2026-10-29T07:00:00+09:00",
- "updated": "10-28 07:22"
+ "updated": "10-28 10:32"
 }
